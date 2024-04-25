@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Table from "react-bootstrap/Table";
 import { Alert, Container, Pagination } from "react-bootstrap";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
+import { useState } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,9 +21,29 @@ type TGetServerSideProps = {
   users: TUserItem[];
 };
 
+const getPages = (currentPage: number, totalPages: number) => {
+  let startPage = currentPage;
+  let endPage = totalPages;
+  if (totalPages > 10) {
+    if (currentPage <= 6) {
+      startPage = 1;
+      endPage = 10;
+    } else if (currentPage + 4 >= totalPages) {
+      startPage = totalPages - 9;
+      endPage = totalPages;
+    } else {
+      startPage = currentPage - 5;
+      endPage = currentPage + 4;
+    }
+  }
+
+  const pages = Array.from({ length: endPage - startPage + 1 }, (_, index) => startPage + index);
+  return pages;
+};
+
 export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promise<{ props: TGetServerSideProps }> => {
   try {
-    const res = await fetch("http://localhost:3000/users", { method: "GET" });
+    const res = await fetch(`http://localhost:3000/users`, { method: "GET" });
     if (!res.ok) {
       return { props: { statusCode: res.status, users: [] } };
     }
@@ -36,25 +57,22 @@ export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promi
 }) satisfies GetServerSideProps<TGetServerSideProps>;
 
 export default function Home({ statusCode, users }: TGetServerSideProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
+  const totalPages = Math.ceil(users.length / pageSize);
+  const paginatedUsers = users.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   if (statusCode !== 200) {
     return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
   }
 
-  let active = 1;
-  let items = [];
-  for (let number = 1; number <= 10; number++) {
-    items.push(
-      <Pagination.Item key={number} active={number === active}>
-        {number}
-      </Pagination.Item>
-    );
-  }
+  const handlePageChange = (page: number) => {
+    if (page !== 0 && page < totalPages + 1) {
+      setCurrentPage(page);
+    }
+  };
 
-  const paginationBasic = (
-    <div>
-      <Pagination>{items}</Pagination>
-    </div>
-  );
+  const pagesList = getPages(currentPage, totalPages);
   return (
     <>
       <Head>
@@ -80,7 +98,7 @@ export default function Home({ statusCode, users }: TGetServerSideProps) {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {paginatedUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td>{user.firstname}</td>
@@ -92,8 +110,17 @@ export default function Home({ statusCode, users }: TGetServerSideProps) {
               ))}
             </tbody>
           </Table>
-          {paginationBasic}
-          {/*TODO add pagination*/}
+          <Pagination>
+            <Pagination.First onClick={() => handlePageChange(1)} />
+            <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} />
+            {pagesList.map((page) => (
+              <Pagination.Item key={page} active={page === currentPage} onClick={() => handlePageChange(page)}>
+                {page}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} />
+            <Pagination.Last onClick={() => handlePageChange(totalPages)} />
+          </Pagination>
         </Container>
       </main>
     </>
