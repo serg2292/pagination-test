@@ -1,6 +1,6 @@
 import { UserService } from './users.service';
 import { Controller, Get, Logger } from '@nestjs/common';
-import {UsersResponseDto} from "./users.response.dto";
+import { UsersResponseDto } from './users.response.dto';
 
 @Controller('users')
 export class UserController {
